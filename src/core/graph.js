@@ -20,12 +20,12 @@ export type Edge<T: string, +P> = {|
   +payload: P,
 |};
 
-export type GraphJSON<NT, NP, ET, EP> = {|
+export type GraphJSON<NT: string, NP, ET: string, EP> = {|
   +nodes: AddressMapJSON<Node<NT, NP>>,
   +edges: AddressMapJSON<Edge<ET, EP>>,
 |};
 
-export class Graph<NT, NP, ET, EP> {
+export class Graph<NT: string, NP, ET: string, EP> {
   _nodes: AddressMap<NT, Node<NT, NP>>;
   _edges: AddressMap<ET, Edge<ET, EP>>;
 
@@ -182,26 +182,13 @@ export class Graph<NT, NP, ET, EP> {
    *
    * The existing graph objects are not modified.
    */
-  static merge<
-    NT,
-    NP,
-    ET,
-    EP,
-    NT1: NT,
-    NP1: NP,
-    ET1: ET,
-    EP1: EP,
-    NT2: NT,
-    NP2: NP,
-    ET2: ET,
-    EP2: EP
-  >(
-    g1: Graph<NT1, NP1, ET1, EP1>,
-    g2: Graph<NT2, NP2, ET2, EP2>,
-    nodeResolver: (Node<NT1, NP1>, Node<NT2, NP2>) => Node<NT, NP>,
-    edgeResolver: (Edge<ET1, EP1>, Edge<ET2, EP2>) => Edge<ET, EP>
-  ): Graph<NT, NP, ET, EP> {
-    const result: Graph<NT, NP, ET, EP> = new Graph();
+  static merge<NP1, EP1, NP2, EP2>(
+    g1: Graph<any, NP1, any, EP1>,
+    g2: Graph<any, NP2, any, EP2>,
+    nodeResolver: (Node<any, NP1>, Node<any, NP2>) => Node<any, NP1 | NP2>,
+    edgeResolver: (Edge<any, EP1>, Edge<any, EP2>) => Edge<any, EP1 | EP2>
+  ): Graph<any, NP1 | NP2, any, EP1 | EP2> {
+    const result: Graph<any, NP1 | NP, any, EP1 | EP2> = new Graph();
     g1.getAllNodes().forEach((node) => {
       if (g2.getNode(node.address) !== undefined) {
         const resolved = nodeResolver(node, g2.getNode(node.address));
@@ -237,22 +224,10 @@ export class Graph<NT, NP, ET, EP> {
    * for edges). If this assumption does not hold, this function will
    * raise an error.
    */
-  static mergeConservative<
-    NT,
-    NP,
-    EP,
-    NT1: NT,
-    NP1: NP,
-    ET1: ET,
-    EP1: EP,
-    NT2: NT,
-    NP2: NP,
-    ET2: ET,
-    EP2: EP
-  >(
-    g1: Graph<NT1, NP1, ET1, EP1>,
-    g2: Graph<NT2, NP2, ET2, EP2>
-  ): Graph<NT, NP, ET, EP> {
+  static mergeConservative<NP1, EP1, NP2, EP2>(
+    g1: Graph<any, NP1, any, EP1>,
+    g2: Graph<any, NP2, any, EP2>
+  ): Graph<any, NP1 | NP, any, EP1 | EP2> {
     function conservativeResolver<T: Addressable<string>>(
       kinds: string /* used for an error message on mismatch */,
       a: T,
@@ -266,7 +241,7 @@ export class Graph<NT, NP, ET, EP> {
         );
       }
     }
-    const result: Graph<NT, NP, ET, EP> = Graph.merge(
+    const result: Graph<any, NP1 | NP2, any, EP1 | EP2> = Graph.merge(
       g1,
       g2,
       (u, v) => conservativeResolver("nodes", u, v),

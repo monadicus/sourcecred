@@ -5,16 +5,18 @@ import {AddressMap, sortedByAddress} from "./address";
 
 describe("address", () => {
   // Some test data using objects that have addresses, like houses.
+  type HouseType = "HOUSETYPE";
   type House = {|
-    +address: Address,
+    +address: Address<HouseType>,
     +beds: number,
     +baths: number,
   |};
-  function makeAddress(id: string): Address {
+  function makeAddress(id: string): Address<HouseType> {
     return {
       repositoryName: "sourcecred/suburbia",
       pluginName: "houseville",
       id,
+      type: "HOUSETYPE",
     };
   }
   const mansion = (): House => ({
@@ -35,7 +37,7 @@ describe("address", () => {
   });
 
   describe("AddressMap", () => {
-    const makeMap = (): AddressMap<House> =>
+    const makeMap = (): AddressMap<HouseType, House> =>
       new AddressMap().add(mansion()).add(mattressStore());
 
     it("creates a simple map", () => {
@@ -66,7 +68,9 @@ describe("address", () => {
     });
 
     it("rehydrates elements with addresses", () => {
-      const newMap: AddressMap<House> = AddressMap.fromJSON(makeMap().toJSON());
+      const newMap: AddressMap<HouseType, House> = AddressMap.fromJSON(
+        makeMap().toJSON()
+      );
       newMap.getAll().forEach((house) => {
         expect(Object.keys(house).sort()).toEqual(["address", "baths", "beds"]);
       });

@@ -2,30 +2,33 @@
 
 import deepEqual from "lodash.isequal";
 
-export type Address = {|
+export type Address<T: string> = {|
   +repositoryName: string,
   +pluginName: string,
+  +type: T,
   +id: string,
 |};
 
-export interface Addressable {
-  +address: Address;
+export interface Addressable<T: string> {
+  +address: Address<T>;
 }
 
-export type SansAddress<T: Addressable> = $Exact<$Diff<T, {+address: Address}>>;
+export type SansAddress<T: string, U: Addressable<T>> = $Exact<
+  $Diff<U, {+address: Address<T>}>
+>;
 
-export type AddressMapJSON<T: Addressable> = {
-  [serializedAddress: string]: SansAddress<T>,
+export type AddressMapJSON<T: string, U: Addressable<T>> = {
+  [serializedAddress: string]: SansAddress<T, U>,
 };
 
 /**
  * A data structure for storing addressable objects, keyed by their
  * addresses.
  */
-export class AddressMap<T: Addressable> {
+export class AddressMap<T: string, U: Addressable<T>> {
   // TODO(@wchargin): Evaluate performance gains from using a triple-map
   // here. Cf. https://jsperf.com/address-string-302039074.
-  _data: {[serializedAddress: string]: T};
+  _data: {[serializedAddress: string]: U};
 
   /**
    * Create an empty `AddressMap`.
@@ -39,11 +42,11 @@ export class AddressMap<T: Addressable> {
    * logically equal if they contain the same keys and the values at
    * each key are deep-equal.
    */
-  equals(that: AddressMap<T>): boolean {
+  equals(that: AddressMap<T, U>): boolean {
     return deepEqual(this._data, that._data);
   }
 
-  toJSON(): AddressMapJSON<T> {
+  toJSON(): AddressMapJSON<T, U> {
     const result = {};
     Object.keys(this._data).forEach((key) => {
       const node = {...this._data[key]};
@@ -53,8 +56,8 @@ export class AddressMap<T: Addressable> {
     return result;
   }
 
-  static fromJSON(json: AddressMapJSON<T>): AddressMap<T> {
-    const result: AddressMap<T> = new AddressMap();
+  static fromJSON(json: AddressMapJSON<T, U>): AddressMap<T, U> {
+    const result: AddressMap<T, U> = new AddressMap();
     Object.keys(json).forEach((key) => {
       result._data[key] = {...json[key], address: JSON.parse(key)};
     });
@@ -67,12 +70,12 @@ export class AddressMap<T: Addressable> {
    *
    * Returns `this` for easy chaining.
    */
-  add(t: T): this {
-    if (t.address == null) {
-      throw new Error(`address is ${String(t.address)}`);
+  add(u: U): this {
+    if (u.address == null) {
+      throw new Error(`address is ${String(u.address)}`);
     }
-    const key = JSON.stringify(t.address);
-    this._data[key] = t;
+    const key = JSON.stringify(u.address);
+    this._data[key] = u;
     return this;
   }
 
@@ -80,7 +83,7 @@ export class AddressMap<T: Addressable> {
    * Get the object at the given address, if it exists, or `undefined`
    * otherwise.
    */
-  get(address: Address): T {
+  get(address: Address<T>): U {
     if (address == null) {
       throw new Error(`address is ${String(address)}`);
     }
@@ -91,7 +94,7 @@ export class AddressMap<T: Addressable> {
   /**
    * Get all objects stored in the map, in some unspecified order.
    */
-  getAll(): T[] {
+  getAll(): U[] {
     return Object.keys(this._data).map((k) => this._data[k]);
   }
 }
@@ -100,8 +103,8 @@ export class AddressMap<T: Addressable> {
  * Create a copy of the given array and sort its elements by their
  * addresses. The original array and its elements are not modified.
  */
-export function sortedByAddress<T: Addressable>(xs: T[]) {
-  function cmp(x1: T, x2: T): -1 | 0 | 1 {
+export function sortedByAddress<T: string, U: Addressable<T>>(xs: U[]) {
+  function cmp(x1: U, x2: U): -1 | 0 | 1 {
     // TODO(@wchargin): This can be replaced by three string-comparisons
     // to avoid stringifying.
     const a1 = JSON.stringify(x1.address);

@@ -1,6 +1,3 @@
-// @flow
-
-import type {Node, Edge} from "../../core/graph";
 import type {Address} from "../../core/address";
 import {Graph, edgeID} from "../../core/graph";
 const stringify = require("json-stable-stringify");
@@ -8,15 +5,14 @@ const stringify = require("json-stable-stringify");
 export const GITHUB_PLUGIN_NAME = "sourcecred/github-beta";
 
 /** Node Types */
-// TODO consider moving types to github/types.js
-export type IssueNodeType = "ISSUE";
+export const ISSUE_NODE_TYPE = "ISSUE";
 export type IssueNodePayload = {|
   +title: string,
   +number: number,
   +body: string,
 |};
 
-export type PullRequestNodeType = "PULL_REQUEST";
+export const PULL_REQUEST_NODE_TYPE = "PULL_REQUEST";
 export type PullRequestNodePayload = {|
   +title: string,
   +number: number,
@@ -29,13 +25,13 @@ export type PullRequestReviewState =
   | "COMMENTED"
   | "DISMISSED"
   | "PENDING";
-export type PullRequestReviewNodeType = "PULL_REQUEST_REVIEW";
+export const PULL_REQUEST_REVIEW_NODE_TYPE = "PULL_REQUEST_REVIEW";
 export type PullRequestReviewNodePayload = {|
   +body: string,
   +state: PullRequestReviewState,
 |};
 
-export type CommentNodeType = "COMMENT";
+export const COMMENT_NODE_TYPE = "COMMENT";
 export type CommentNodePayload = {|
   +url: string,
   +body: string,
@@ -44,61 +40,32 @@ export type CommentNodePayload = {|
 // We have this as a separate type from regular comments because we may
 // be interested in diff hunks, which are only present on PR review
 // comments.
-export type PullRequestReviewCommentNodeType = "PULL_REQUEST_REVIEW_COMMENT";
+export const PULL_REQUEST_REVIEW_COMMENT_NODE_TYPE =
+  "PULL_REQUEST_REVIEW_COMMENT";
 export type PullRequestReviewCommentNodePayload = {|
   +url: string,
   +body: string,
 |};
 
-export type UserNodeType = "USER";
+export const USER_NODE_TYPE = "USER";
 export type UserNodePayload = {|
   +login: string,
 |};
 
-export type BotNodeType = "BOT";
+export const BOT_NODE_TYPE = "BOT";
 export type BotNodePayload = {|
   +login: string,
 |};
 
-export type OrganizationNodeType = "ORGANIZATION";
+export const ORGANIZATION_NODE_TYPE = "ORGANIZATION";
 export type OrganizationNodePayload = {|
   +login: string,
 |};
 
-export type AuthorNodeType = UserNodeType | BotNodeType | OrganizationNodeType;
 export type AuthorNodePayload =
   | UserNodePayload
   | BotNodePayload
   | OrganizationNodePayload;
-
-// A map from NodeType string to the corresponding type and payload.
-// Primarily useful for adding static assertions with $ObjMap, but also
-// useful at the value layer as $ElementType<NodeTypes, "ISSUE">, for
-// instance.
-export type NodeTypes = {|
-  ISSUE: {payload: IssueNodePayload, type: IssueNodeType},
-  PULL_REQUEST: {payload: PullRequestNodePayload, type: PullRequestNodeType},
-  COMMENT: {payload: CommentNodePayload, type: CommentNodeType},
-  PULL_REQUEST_REVIEW_COMMENT: {
-    payload: PullRequestReviewCommentNodePayload,
-    type: PullRequestReviewCommentNodeType,
-  },
-  PULL_REQUEST_REVIEW: {
-    payload: PullRequestReviewNodePayload,
-    type: PullRequestReviewNodeType,
-  },
-  USER: {payload: UserNodePayload, type: UserNodeType},
-  ORGANIZATION: {payload: OrganizationNodePayload, type: OrganizationNodeType},
-  BOT: {payload: BotNodePayload, type: BotNodeType},
-|};
-
-export type NodeType =
-  | IssueNodeType
-  | PullRequestNodeType
-  | CommentNodeType
-  | PullRequestReviewNodeType
-  | PullRequestReviewCommentNodeType
-  | AuthorNodeType;
 
 export type NodePayload =
   | IssueNodePayload
@@ -109,53 +76,11 @@ export type NodePayload =
   | AuthorNodePayload;
 
 /** Edge Types */
-export type AuthorshipEdgePayload = {};
-export type AuthorshipEdgeType = "AUTHORSHIP";
-export type ContainmentEdgePayload = {};
-export type ContainmentEdgeType = "CONTAINMENT";
-export type ReferenceEdgePayload = {};
-export type ReferenceEdgeType = "REFERENCE";
-
-export type EdgeTypes = {|
-  AUTHORSHIP: {
-    payload: AuthorshipEdgePayload,
-    type: AuthorshipEdgeType,
-  },
-  CONTAINMENT: {
-    payload: ContainmentEdgePayload,
-    type: ContainmentEdgeType,
-  },
-  REFERENCE: {
-    payload: ReferenceEdgePayload,
-    type: ReferenceEdgeType,
-  },
-|};
 export type EdgePayload =
   | AuthorshipEdgePayload
   | ContainmentEdgePayload
   | ReferenceEdgePayload;
-export type EdgeType =
-  | AuthorshipEdgeType
-  | ContainmentEdgeType
-  | ReferenceEdgeType;
 
-(function staticAssertions() {
-  // Check that node & edge payload types are exhaustive.
-  (x: NodeType): $Keys<NodeTypes> => x;
-  (x: EdgeType): $Keys<EdgeTypes> => x;
-
-  // Check that each type is associated with the correct ID type.
-  // Doesn't work because of a Flow bug; should work if that bug is
-  // fixed: https://github.com/facebook/flow/issues/4211
-  // (Summary of bug: $ElementType<O, -> does not preserve unions.)
-  //
-  // <T: $Keys<NodeTypes>>(
-  //   x: T
-  // ): $ElementType<
-  //   $ElementType<$ElementType<NodeTypes, T>, "id">,
-  //   "type"
-  // > => x;
-});
 export class GithubParser {
   repositoryName: string;
   graph: Graph<NodePayload, EdgePayload>;
@@ -165,7 +90,7 @@ export class GithubParser {
     this.graph = new Graph();
   }
 
-  makeNodeAddress(type: NodeType, id: string): Address {
+  makeNodeAddress(type: string, id: string): Address {
     return {
       pluginName: GITHUB_PLUGIN_NAME,
       repositoryName: this.repositoryName,
@@ -174,7 +99,7 @@ export class GithubParser {
     };
   }
 
-  makeEdgeAddress(type: EdgeType, src: Address, dst: Address): Address {
+  makeEdgeAddress(type: string, src: Address, dst: Address): Address {
     return {
       pluginName: GITHUB_PLUGIN_NAME,
       repositoryName: this.repositoryName,
@@ -194,7 +119,7 @@ export class GithubParser {
     authorJson: *
   ) {
     let authorPayload: AuthorNodePayload = {login: authorJson.login};
-    let authorType: NodeType;
+    let authorType: string;
     switch (authorJson.__typename) {
       case "User":
         authorType = "USER";
@@ -238,7 +163,7 @@ export class GithubParser {
     >,
     commentJson: *
   ) {
-    let commentType: NodeType;
+    let commentType: string;
     switch (parentNode.address.type) {
       case "PULL_REQUEST_REVIEW":
         commentType = "PULL_REQUEST_REVIEW_COMMENT";
